@@ -40,9 +40,15 @@ class robot_kinematic:
         return os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
 
     def init_robot_info(self):
-        for joint in self.robot.joints:
+        # for joint in self.robot.joints:
             # print('{} connects {} to {}'.format(joint.name, joint.parent, joint.child))
-            self._robot_joints[joint.name] = 0.
+            # self._robot_joints[joint.name] = 0.
+        self._robot_joints = OrderedDict()
+
+        for joint in self.robot.joints:
+            if joint.joint_type in ["revolute", "prismatic", "continuous"]:
+                self._robot_joints[joint.name] = 0.0
+
             if joint.parent not in self.link_names:
                 self.link_names.append(joint.parent)
             if joint.child not in self.link_names:
@@ -56,6 +62,20 @@ class robot_kinematic:
             link_name = self.link_names[i]
             self.robot_links_mesh[link_name] = list(meshes.keys())[i].copy()
             self.robot_links_convex_mesh[link_name] = trimesh.convex.convex_hull(self.robot_links_mesh[link_name])
+
+
+        print("num_joints:", self.num_joints)
+        print("lower bounds:", self.joint_lower_bound.shape)
+        print("upper bounds:", self.joint_upper_bound.shape)
+        print("joint names:", self.joint_names)
+        print("\n--- DEBUG: mesh dictionary keys ---")
+        for k in self.robot_links_mesh.keys():
+            print(k, type(k))
+
+        print("\n--- DEBUG: original link_names ---")
+        for k in self.link_names:
+            print(k, type(k))
+
 
     def show_robot_meshes(self, convex=True, bounding_box=True):
         combined_meshes = self.get_combined_mesh(convex, bounding_box)
@@ -121,7 +141,7 @@ class robot_kinematic:
             return False
 
     def set_robot_joints(self, positions):
-        assert len(positions) == 7
+        assert len(positions) == self.num_joints
         for i in range(self.num_joints):
             self._robot_joints[self.joint_names[i]] = positions[i]
 
@@ -171,15 +191,23 @@ class robot_kinematic:
     def joint_lower_bound(self):
         return self._joint_lower_bound
 
+    # @property
+    # def link_connection_set(self):
+    #     return {('lbr_iiwa_link_2', 'lbr_iiwa_link_3'),
+    #             ('lbr_iiwa_link_4', 'lbr_iiwa_link_5'),
+    #             ('lbr_iiwa_link_5', 'lbr_iiwa_link_6'),
+    #             ('lbr_iiwa_link_3', 'lbr_iiwa_link_4'),
+    #             ('lbr_iiwa_link_6', 'lbr_iiwa_link_7'),
+    #             ('lbr_iiwa_link_0', 'lbr_iiwa_link_1'),
+    #             ('lbr_iiwa_link_1', 'lbr_iiwa_link_2')}
     @property
     def link_connection_set(self):
-        return {('lbr_iiwa_link_2', 'lbr_iiwa_link_3'),
-                ('lbr_iiwa_link_4', 'lbr_iiwa_link_5'),
-                ('lbr_iiwa_link_5', 'lbr_iiwa_link_6'),
-                ('lbr_iiwa_link_3', 'lbr_iiwa_link_4'),
-                ('lbr_iiwa_link_6', 'lbr_iiwa_link_7'),
-                ('lbr_iiwa_link_0', 'lbr_iiwa_link_1'),
-                ('lbr_iiwa_link_1', 'lbr_iiwa_link_2')}
+        pairs = set()
+        for joint in self.robot.joints:
+            pairs.add((joint.parent, joint.child))
+            pairs.add((joint.child, joint.parent))
+        return pairs
+
 
 
 if __name__ == "__main__":
