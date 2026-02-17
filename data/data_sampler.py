@@ -194,8 +194,8 @@ if __name__ == "__main__":
     robo.show_robot_meshes(convex=False, bounding_box=False)
     robo.show_robot_meshes(convex=False, bounding_box=True)
 
-    print(robo.link_names)
-    print(robo.joint_names)
+    print("link_names",robo.link_names)
+    print("joint_names",robo.joint_names)
     print("self-collision detected: {}".format(robo.self_collision_detected()))
 
     combined_mesh = robo.get_combined_mesh(convex=False, bounding_box=False)

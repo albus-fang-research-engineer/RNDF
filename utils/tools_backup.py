@@ -40,9 +40,16 @@ class robot_kinematic:
         return os.path.join(os.path.dirname(os.path.realpath(__file__)), filename)
 
     def init_robot_info(self):
+        print("\n=== VISUAL COUNT PER LINK ===")
+        for link in self.robot.links:
+            v = link.visuals
+            print(link.name, 0 if v is None else len(v))
+        print("================================\n")
+
         # for joint in self.robot.joints:
             # print('{} connects {} to {}'.format(joint.name, joint.parent, joint.child))
             # self._robot_joints[joint.name] = 0.
+        self._robot_joints = OrderedDict()
 
         for joint in self.robot.joints:
             if joint.joint_type in ["revolute", "prismatic", "continuous"]:
@@ -57,28 +64,58 @@ class robot_kinematic:
         self.num_joints = len(self.joint_names)
         self.num_links = len(self.link_names)
         meshes = self.robot.visual_trimesh_fk()
+        for m in meshes.keys():
+            print("metadata:", m.metadata)
+            break
+
         for i in range(self.num_links):
             link_name = self.link_names[i]
             self.robot_links_mesh[link_name] = list(meshes.keys())[i].copy()
             self.robot_links_convex_mesh[link_name] = trimesh.convex.convex_hull(self.robot_links_mesh[link_name])
 
+        # REMOVE_LINKS = {
+        #     "world",
+        #     "base",
+        #     "base_link_inertia",
+        #     "flange",
+        #     "tool0",
+        #     "ft_frame",
+        # }
+
+        # for name in REMOVE_LINKS:
+        #     self.robot_links_mesh.pop(name, None)
+        #     self.robot_links_convex_mesh.pop(name, None)
+
+        # self.link_names = [ln for ln in self.link_names if ln not in REMOVE_LINKS]
+        # self.num_links = len(self.link_names)
+        # print("\n=== TEST 1: MESH ↔ LINK CHECK ===")
+        # for ln in self.link_names:
+        #     m = self.robot_links_mesh[ln]
+        #     print(f"{ln} -> mesh.metadata['name']={m.metadata.get('name')}")
 
         print("num_joints:", self.num_joints)
-        # print("lower bounds:", self.joint_lower_bound.shape)
-        # print("upper bounds:", self.joint_upper_bound.shape)
+        print("lower bounds:", self.joint_lower_bound.shape)
+        print("upper bounds:", self.joint_upper_bound.shape)
         print("joint names:", self.joint_names)
-        # print("\n--- DEBUG: mesh dictionary keys ---")
+        print("\n--- DEBUG: mesh dictionary keys ---")
         for k in self.robot_links_mesh.keys():
             print(k, type(k))
 
-        # print("\n--- DEBUG: original link_names ---")
-        # for k in self.link_names:
-        #     print(k, type(k))
+        print("\n--- DEBUG: original link_names ---")
+        for k in self.link_names:
+            print(k, type(k))
 
 
+    # def show_robot_meshes(self, convex=True, bounding_box=True):
+    #     combined_meshes = self.get_combined_mesh(convex, bounding_box)
+    #     combined_meshes.show()
     def show_robot_meshes(self, convex=True, bounding_box=True):
-        combined_meshes = self.get_combined_mesh(convex, bounding_box)
-        combined_meshes.show()
+        scene = trimesh.Scene()
+        meshes = self.robot.visual_trimesh_fk()
+        for mesh in meshes.keys():
+            scene.add_geometry(mesh)
+        scene.show()
+
 
     def get_combined_mesh(self, convex=False, bounding_box=False):
         if bool(self.robot_links_convex_mesh) is False:
@@ -97,6 +134,7 @@ class robot_kinematic:
             # use deepcopy for not messing up the original mesh
             mesh = robot_meshes[name].copy()
             # mesh = mesh.apply_transform(fk[self.robot.links[i]])
+            # mesh = mesh.apply_transform(fk[self.robot.link_map[name]])
             if bounding_box:
                 mesh = mesh.bounding_box_oriented
                 # print(trimesh.bounds.corners(mesh.bounds))
@@ -130,8 +168,8 @@ class robot_kinematic:
             link_mesh = robot_meshes[name].copy()
             collision_detector.add_object(name=name,
                                           mesh=link_mesh,
-                                          transform=fk[self.robot.links[i]])
-
+                                        #   transform=fk[self.robot.links[i]])
+                                            transform=fk[self.robot.link_map[name]])
         _, collision_set = collision_detector.in_collision_internal(return_names=True)
         collided_pair = collision_set - self.link_connection_set
         if collided_pair:
@@ -212,7 +250,7 @@ class robot_kinematic:
 if __name__ == "__main__":
     arm = robot_kinematic()
     q = arm.sample_random_robot_config()
-    print("configuration: ", q)
+    print(q)
 
     arm.set_robot_joints(q)
     mesh = arm.get_combined_mesh()
