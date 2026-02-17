@@ -1,0 +1,33 @@
+{
+    "name": "ROS 2 Humble Dev Container",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ros2_humble",
+    
+    "runServices": [ "ros2_humble" ],
+    "forwardPorts": [5678, 5902,9876,5686],
+    "overrideCommand": true,
+    "settings": {
+      "terminal.integrated.defaultProfile.linux": "bash"
+      // "terminal.integrated.env.linux": {
+      //   "PYTHONPATH": "/root:${PYTHONPATH}"
+      // }
+    },
+    "extensions": [
+      "ms-vscode.cpptools",
+      "ms-python.python",
+      "ms-azuretools.vscode-docker",
+      "ms-vscode.remote-containers"
+    ],
+    "mounts": [
+      "source=${localWorkspaceFolder},target=/root/ros2_ws,type=bind",
+      "source=${localWorkspaceFolder}/../library,target=/root/library,type=bind"
+    ],
+    "remoteEnv": {
+      "DISPLAY": ":2",
+      "XDG_RUNTIME_DIR": "/run/user/1000"
+    },
+    "workspaceFolder": "/root/ros2_ws",
+    // "postCreateCommand": "source /opt/ros/humble/setup.bash && rosdep update",
+    "remoteUser": "root"
+  }
+  

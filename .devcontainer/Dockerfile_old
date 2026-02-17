@@ -1,0 +1,134 @@
+FROM ubuntu:jammy
+
+# Set the locale
+RUN apt-get update && apt-get install -y locales && \
+    locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
+    export LANG=en_US.UTF-8
+
+# Set the timezone
+ENV ROS_VERSION=2
+ENV ROS_DISTRO=humble
+ENV ROS_PYTHON_VERSION=3
+ENV TZ=Europe/Berlin
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Setup the sources
+RUN apt-get update && apt-get install -y software-properties-common curl && \
+    add-apt-repository universe && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+    # Install ROS 2 packages
+    RUN apt-get update && apt-get upgrade -y && \
+        apt-get install -y ros-humble-desktop 
+
+# install bootstrap tools
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    git \
+    nano \
+    iputils-ping \
+    wget \
+    python3-colcon-common-extensions \
+    python3-colcon-mixin \
+    python3-rosdep \
+    python3-vcstool \
+    && rm -rf /var/lib/apt/lists/*
+
+# bootstrap rosdep
+RUN rosdep init && \
+  rosdep update --rosdistro humble
+
+
+RUN apt-get update && apt-get install --no-install-recommends -y python3-pip && rm -rf /var/lib/apt/lists/*
+
+# Install OpenCV Python
+RUN pip install opencv-python-headless
+RUN pip install pynmea2
+RUN pip install pyserial
+# Environment setup
+RUN echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
+RUN pip install pyproj
+RUN echo "source /workspace/ros2_ws/install/setup.bash" >> ~/.bashrc
+# RUN echo '#!/usr/bin/env bash' > /ros_entrypoint.sh
+# RUN echo 'source /opt/ros/humble/setup.bash' >> /ros_entrypoint.sh
+# RUN echo 'exec "$@"' >> /ros_entrypoint.sh
+# RUN chmod +x /ros_entrypoint.sh
+
+# ENTRYPOINT ["/ros_entrypoint.sh"]
+# Run bash
+# Install Gazebo packages
+
+RUN pip install filterpy
+# Install ROS 2 Humble Gazebo packages and dependencies
+RUN apt-get update
+RUN apt-get install lsb-release gnupg
+RUN curl https://packages.osrfoundation.org/gazebo.gpg --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+RUN apt-get update
+RUN apt-get install -y ignition-fortress
+RUN pip install rosbags
+RUN pip install rerun-sdk
+RUN apt-get install ros-humble-ros-gz -y
+RUN apt-get remove -y python3-matplotlib && pip install --no-cache-dir --upgrade matplotlib
+RUN pip install rerun-sdk[notebook]
+RUN pip install --upgrade scipy
+# Install required dependencies
+RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y \
+    tigervnc-standalone-server xfce4 xfce4-terminal x11vnc xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up a VNC password
+RUN mkdir -p ~/.vnc && \
+    echo "mypassword" | vncpasswd -f > ~/.vnc/passwd && \
+    chmod 600 ~/.vnc/passwd
+
+RUN pip install cython
+RUN apt update && apt-get install net-tools
+# Configure VNC server to allow remote connections
+RUN echo "localhost=no" > ~/.vnc/config
+RUN apt update && apt install ros-humble-ros2-control ros-humble-ros2-controllers -y
+RUN echo "alias cbs='colcon build --symlink-install'" >> /root/.bashrc
+RUN echo "alias srcinstall='source install/setup.bash'" >> /root/.bashrc
+RUN echo "alias cbsp='colcon build --symlink-install --packages-select'" >> /root/.bashrc
+RUN echo "alias gz='ros2 launch compactor_gazebo gazebo.launch.py'" >> /root/.bashrc
+RUN echo "alias xacro='ros2 run xacro xacro'" >> /root/.bashrc
+RUN echo "alias srcros='source /opt/ros/humble/setup.bash'" >> /root/.bashrc
+RUN echo "export IGN_GAZEBO_SYSTEM_PLUGIN_PATH=/usr/lib/aarch64-linux-gnu/ign-gazebo-6/plugins" >> /root/.bashrc
+RUN apt-get update && apt-get install -y ros-${ROS_DISTRO}-joint-state-publisher
+
+RUN pip install debugpy
+RUN apt update && sudo apt install ffmpeg
+# RUN mkdir -p /root/.ignition/fuel/sim_env/models/ && \
+#     cp /root/ros2_ws/src/gazebo_sim/compactor_gazebo/models/generated_road/generated_road.sdf /root/.ignition/fuel/sim_env/models/generated_road/model.sdf
+RUN echo "export IGN_GAZEBO_RESOURCE_PATH=/root/.ignition/fuel/sim_env/models" >> /root/.bashrc
+RUN echo "alias lgz='ros2 launch compactor_gazebo'" >> /root/.bashrc
+RUN echo "alias gz_road='ros2 launch compactor_gazebo sim.launch.py'" >> /root/.bashrc
+RUN apt-get update && apt-get install -y vim
+RUN echo "export IGN_GAZEBO_SYSTEM_PLUGIN_PATH=$IGN_GAZEBO_SYSTEM_PLUGIN_PATH:/workspace/ros2_ws/src/gazebo_sim/plugins/lib_so_files" >> /root/.bashrc
+RUN apt install ros-humble-gz-ros2-control ros-humble-gz-ros2-control-demos
+
+# Expose the VNC port
+EXPOSE 5902
+EXPOSE 5678
+# RUN apt-get update && apt-get install -y \
+#     ros-humble-gazebo-ros-pkgs \
+#     ros-humble-gazebo-ros2-control \
+#     gazebo11 \
+#     && rm -rf /var/lib/apt/lists/*
+
+# # Set up Gazebo environment variables
+# ENV GAZEBO_MODEL_PATH=/usr/share/gazebo-11/models
+# ENV GAZEBO_RESOURCE_PATH=/usr/share/gazebo-11
+# ENV GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-11/plugins
+# ENV GAZEBO_MEDIA_PATH=/usr/share/gazebo-11/media
+
+# # Persist environment variables in Bash session for interactive shells
+# RUN echo 'export GAZEBO_MODEL_PATH=/usr/share/gazebo-11/models' >> /root/.bashrc && \
+#     echo 'export GAZEBO_RESOURCE_PATH=/usr/share/gazebo-11' >> /root/.bashrc && \
+#     echo 'export GAZEBO_PLUGIN_PATH=/usr/lib/x86_64-linux-gnu/gazebo-11/plugins' >> /root/.bashrc && \
+#     echo 'export GAZEBO_MEDIA_PATH=/usr/share/gazebo-11/media' >> /root/.bashrc
+
+
+CMD ["bash"]

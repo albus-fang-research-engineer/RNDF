@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  rndf_dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rndf_dev
+    privileged: true  
+   # ports:
+    #   - "5092:5092"
+    environment:
+      - ROS_DOMAIN_ID=66
+      - DEBIAN_FRONTEND=noninteractive
+      #for mac
+
+      # - DISPLAY=:0
+
+      #for VM and VNC Viewer
+      - DISPLAY=:1
+      - XDG_RUNTIME_DIR=/run/user/$(id -u)
+      - LIBGL_ALWAYS_SOFTWARE=1
+      - MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+    volumes:
+      - ../../RNDF:/root/RNDF
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # - ~/.Xauthority:/root/.Xauthority:rw
+      - /home/parallels/.Xauthority:/root/.Xauthority:rw
+      - ../src/gazebo_sim/compactor_gazebo/models:/root/.ignition/fuel/sim_env/models
+      - ../src/gazebo_sim/plugins:/usr/lib/aarch64-linux-gnu/ign-gazebo-6/plugins/custom_plugins
+    #devices:
+        #- /dev/video2:/dev/video2 # forward mac camera to linux computer
+    #   - "/dev/ttyACM0:/dev/ttyACM0"
+    #   - "/dev/ttyACM1:/dev/ttyACM1"
+    stdin_open: true  # Keep stdin open for interactive development
+    tty: true  # Enable TTY for interactive bash sessions
+    network_mode: host  # Use host networking for ROS communication (optional, adjust based on your needs)
+
+  ros2_humble_embedded:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: ros2_humble_container_embedded
+      environment:
+        - ROS_DOMAIN_ID=66
+        - DEBIAN_FRONTEND=noninteractive
+        - DISPLAY=:1  # Changed DISPLAY value
+        - XDG_RUNTIME_DIR=/run/user/$(id -u)
+        - LIBGL_ALWAYS_SOFTWARE=1
+        - MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+      volumes:
+        - ../../ros_workspace:/root/ros2_ws
+        - /tmp/.X11-unix:/tmp/.X11-unix:rw
+        - ~/.Xauthority:/root/.Xauthority:rw
+      # devices:
+        # - "/dev/ttyACM0:/dev/ttyACM0"
+        # - "/dev/ttyACM1:/dev/ttyACM1"
+      stdin_open: true
+      tty: true
+      network_mode: host
+  
+  ros2_rerun:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      container_name: ros2_humble_container_rerun
+      ports:
+      - "5092:5092"
+      environment:
+        - ROS_DOMAIN_ID=66
+        - DEBIAN_FRONTEND=noninteractive
+        - DISPLAY=:2  # Port 5902 for VNC
+        - XDG_RUNTIME_DIR=/run/user/$(id -u)
+        - LIBGL_ALWAYS_SOFTWARE=1
+        - MESA_LOADER_DRIVER_OVERRIDE=llvmpipe
+      volumes:
+        - ../../ros_workspace:/root/ros2_ws
+        - /tmp/.X11-unix:/tmp/.X11-unix:rw
+        - ~/.Xauthority:/root/.Xauthority:rw
+      
+      stdin_open: true
+      tty: true
+      network_mode: host
+      
