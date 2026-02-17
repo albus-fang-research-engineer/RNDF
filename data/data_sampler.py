@@ -66,7 +66,7 @@ class DataSampler(robot_kinematic):
         # trimesh uses a rejection-based sampling method
         # mesh with intricate geometry needs to sample more
         if link_weights is None:
-            link_weights = [1, 1, 1, 1, 1, 3, 1, 1]
+            link_weights = [1, 1, 1, 2, 3, 3, 3]
         assert len(link_weights) == self.num_links
 
         if joint_positions is not None:
@@ -216,4 +216,4 @@ if __name__ == "__main__":
     robo.batch_sample_outside_mesh(batch_size=4, base_num=20, offset_range=[0., 0.1])
 
     # batch sample inside
-    robo.batch_sample_inside_mesh(batch_size=4, base_num=20, link_weights=[1, 1, 1, 1, 1, 3, 1, 1])
+    robo.batch_sample_inside_mesh(batch_size=4, base_num=20, link_weights=[1, 1, 1, 2, 3, 3, 3])
