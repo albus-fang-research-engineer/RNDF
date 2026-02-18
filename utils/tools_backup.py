@@ -94,8 +94,6 @@ class robot_kinematic:
         #     print(f"{ln} -> mesh.metadata['name']={m.metadata.get('name')}")
 
         print("num_joints:", self.num_joints)
-        print("lower bounds:", self.joint_lower_bound.shape)
-        print("upper bounds:", self.joint_upper_bound.shape)
         print("joint names:", self.joint_names)
         print("\n--- DEBUG: mesh dictionary keys ---")
         for k in self.robot_links_mesh.keys():

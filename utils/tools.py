@@ -48,61 +48,130 @@ class robot_kinematic:
             if joint.joint_type in ["revolute", "prismatic", "continuous"]:
                 self._robot_joints[joint.name] = 0.0
 
-            if joint.parent not in self.link_names:
-                self.link_names.append(joint.parent)
-            if joint.child not in self.link_names:
-                self.link_names.append(joint.child)
+            # if joint.parent not in self.link_names:
+            #     self.link_names.append(joint.parent)
+            # if joint.child not in self.link_names:
+            #     self.link_names.append(joint.child)
 
         self.joint_names = list(self._robot_joints.keys())
         self.num_joints = len(self.joint_names)
         self.num_links = len(self.link_names)
-        meshes = self.robot.visual_trimesh_fk()
-        for i in range(self.num_links):
-            link_name = self.link_names[i]
-            self.robot_links_mesh[link_name] = list(meshes.keys())[i].copy()
-            self.robot_links_convex_mesh[link_name] = trimesh.convex.convex_hull(self.robot_links_mesh[link_name])
+        # meshes = self.robot.visual_trimesh_fk() # 27 meshes, but only 7 links.
+        # # print("num meshes:", len(meshes))
+        # # print(type(list(meshes.keys())[0]))
+        # for i in range(self.num_links):
+        #     link_name = self.link_names[i]
+        #     self.robot_links_mesh[link_name] = list(meshes.keys())[i].copy()
+        #     self.robot_links_convex_mesh[link_name] = trimesh.convex.convex_hull(self.robot_links_mesh[link_name])
+        self.link_names = []
+
+        for link in self.robot.links:
+
+            if not link.visuals:
+                continue
+
+            meshes = []
+
+            # for visual in link.visuals:
+            #     for m in visual.geometry.meshes:
+            #         meshes.append(m.copy())
+            for visual in link.visuals:
+                for m in visual.geometry.meshes:
+                    mesh = m.copy()
+
+                    if visual.origin is not None:
+                        mesh.apply_transform(visual.origin)
+
+                    meshes.append(mesh)
+
+
+            if meshes:
+                combined = trimesh.util.concatenate(meshes)
+
+                self.robot_links_mesh[link.name] = combined
+                self.robot_links_convex_mesh[link.name] = trimesh.convex.convex_hull(combined)
+
+                self.link_names.append(link.name)
+
+        self.num_links = len(self.link_names)
+        for name, mesh in self.robot_links_mesh.items():
+            print(name, mesh.vertices.shape)
+
+        print("num_links with visuals:", self.num_links)
+        print("link_names:", self.link_names)
 
 
         print("num_joints:", self.num_joints)
         # print("lower bounds:", self.joint_lower_bound.shape)
         # print("upper bounds:", self.joint_upper_bound.shape)
-        print("joint names:", self.joint_names)
+        # print("joint names:", self.joint_names)
         # print("\n--- DEBUG: mesh dictionary keys ---")
-        for k in self.robot_links_mesh.keys():
-            print(k, type(k))
+        # for k in self.robot_links_mesh.keys():
+        #     print(k, type(k))
 
         # print("\n--- DEBUG: original link_names ---")
         # for k in self.link_names:
         #     print(k, type(k))
+        print("\n=== LOCAL MESH CENTROIDS ===")
+        for name in self.link_names:
+            print(name, self.robot_links_mesh[name].centroid)
 
 
     def show_robot_meshes(self, convex=True, bounding_box=True):
         combined_meshes = self.get_combined_mesh(convex, bounding_box)
         combined_meshes.show()
 
+    # def get_combined_mesh(self, convex=False, bounding_box=False):
+    #     if bool(self.robot_links_convex_mesh) is False:
+    #         raise ValueError('Please init the robot first!')
+    #     convex_meshes = []
+    #     fk = self.robot.link_fk(cfg=self.robot_joints)
+
+    #     if convex:
+    #         robot_meshes = self.robot_links_convex_mesh
+    #     else:
+    #         robot_meshes = self.robot_links_mesh
+
+    #     for i in range(self.num_links):
+    #         name = self.link_names[i]
+
+    #         # use deepcopy for not messing up the original mesh
+    #         mesh = robot_meshes[name].copy()
+    #         # mesh = mesh.apply_transform(fk[self.robot.links[i]])
+    #         if bounding_box:
+    #             mesh = mesh.bounding_box_oriented
+    #             # print(trimesh.bounds.corners(mesh.bounds))
+    #         convex_meshes.append(mesh)
+    #     combined_meshes = trimesh.util.concatenate(convex_meshes)
+    #     return combined_meshes
     def get_combined_mesh(self, convex=False, bounding_box=False):
-        if bool(self.robot_links_convex_mesh) is False:
+
+        if not self.robot_links_convex_mesh:
             raise ValueError('Please init the robot first!')
-        convex_meshes = []
+
         fk = self.robot.link_fk(cfg=self.robot_joints)
 
-        if convex:
-            robot_meshes = self.robot_links_convex_mesh
-        else:
-            robot_meshes = self.robot_links_mesh
+        robot_meshes = (
+            self.robot_links_convex_mesh if convex
+            else self.robot_links_mesh
+        )
 
-        for i in range(self.num_links):
-            name = self.link_names[i]
+        meshes_world = []
 
-            # use deepcopy for not messing up the original mesh
+        for name in self.link_names:
+
             mesh = robot_meshes[name].copy()
-            # mesh = mesh.apply_transform(fk[self.robot.links[i]])
+
+            link_obj = self.robot.link_map[name]
+            mesh.apply_transform(fk[link_obj])
+
             if bounding_box:
                 mesh = mesh.bounding_box_oriented
-                # print(trimesh.bounds.corners(mesh.bounds))
-            convex_meshes.append(mesh)
-        combined_meshes = trimesh.util.concatenate(convex_meshes)
-        return combined_meshes
+
+            meshes_world.append(mesh)
+
+        return trimesh.util.concatenate(meshes_world)
+
 
     def get_link_mesh(self, link_name, joint_positions=None):
         assert link_name in self.link_names
