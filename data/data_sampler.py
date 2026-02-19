@@ -15,21 +15,40 @@ class DataSampler(robot_kinematic):
         super().__init__(urdf_path)
         self.dataset_path = dataset_path
 
+    # def get_link_mesh(self, link_name, joint_positions=None):
+    #     assert link_name in self.link_names
+    #     if joint_positions is None:
+    #         fk = self.robot.link_fk(cfg=self.robot_joints)
+    #     else:
+    #         robot_config = copy.deepcopy(self.robot_joints)
+    #         for i, name in self.link_names:
+    #             robot_config[name] = joint_positions[i]
+    #         fk = self.robot.link_fk(cfg=self.robot_joints)
+
+    #     robot_meshes = self.robot_links_mesh
+    #     mesh = robot_meshes[link_name].copy()
+    #     link_index = self.link_names.index(link_name)
+    #     mesh = mesh.apply_transform(fk[self.robot.links[link_index]])
+    #     return mesh
     def get_link_mesh(self, link_name, joint_positions=None):
+
         assert link_name in self.link_names
+
         if joint_positions is None:
             fk = self.robot.link_fk(cfg=self.robot_joints)
         else:
             robot_config = copy.deepcopy(self.robot_joints)
-            for i, name in self.link_names:
-                robot_config[name] = joint_positions[i]
-            fk = self.robot.link_fk(cfg=self.robot_joints)
+            for i, joint_name in enumerate(self.joint_names):
+                robot_config[joint_name] = joint_positions[i]
+            fk = self.robot.link_fk(cfg=robot_config)
 
-        robot_meshes = self.robot_links_mesh
-        mesh = robot_meshes[link_name].copy()
-        link_index = self.link_names.index(link_name)
-        mesh = mesh.apply_transform(fk[self.robot.links[link_index]])
+        mesh = self.robot_links_mesh[link_name].copy()
+
+        link_obj = self.robot.link_map[link_name]
+        mesh.apply_transform(fk[link_obj])
+
         return mesh
+
 
     def set_robot_joints(self, positions):
         assert len(positions) == self.num_joints
@@ -128,6 +147,7 @@ class DataSampler(robot_kinematic):
             rand_q = self.sample_random_robot_config()
             self.set_robot_joints(rand_q)
             if self.self_collision_detected():
+                print("self-collision detected, resampling robot configuration", rand_q)
                 continue
             sample_points = self.whole_arm_normal_sampling(base_num=base_num, offset_range=offset_range)
             signed_dist = self.batch_calculate_signed_distance(sample_points)
@@ -188,6 +208,9 @@ if __name__ == "__main__":
 
     # random joint configuration
     sampled_q = robo.sample_random_robot_config()
+    print("Sampled q:", sampled_q)
+    # sampled_q = np.array([ 1.49208575,  1.92796321, -2.76736766,  1.31964001,  4.76788696,  4.1729126 ])
+    # print("Current q:", robo.robot_q)
     robo.set_robot_joints(sampled_q)
 
     # visualize sampled joint configuration
@@ -201,13 +224,13 @@ if __name__ == "__main__":
     combined_mesh = robo.get_combined_mesh(convex=False, bounding_box=False)
 
     # sampled points outside
-    outside_points = robo.whole_arm_normal_sampling(offset_range=[0.4, 0.5], base_num=5)
+    outside_points = robo.whole_arm_normal_sampling(offset_range=[0.4, 0.5], base_num=50)
     scene_outside = robo.create_point_cloud_scene(outside_points, combined_mesh, point_radius=0.02)
     scene_outside.show()
     print("signed distance:", robo.batch_calculate_signed_distance(outside_points))
 
     # sampled points inside (well you may not see it without zooming in)
-    inside_points = robo.whole_arm_inside_sampling(base_num=10)
+    inside_points = robo.whole_arm_inside_sampling(base_num=50)
     scene_inside = robo.create_point_cloud_scene(inside_points, combined_mesh, point_radius=0.02)
     scene_inside.show()
     print("signed distance:", robo.batch_calculate_signed_distance(inside_points))

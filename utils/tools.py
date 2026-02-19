@@ -87,6 +87,11 @@ class robot_kinematic:
 
             if meshes:
                 combined = trimesh.util.concatenate(meshes)
+                print(link.name, "faces before mesh decimation:", len(combined.faces))
+                target_faces = 1 * len(combined.faces)
+                if len(combined.faces) > target_faces:
+                    combined = combined.simplify_quadratic_decimation(target_faces)
+                print(link.name, "faces after mesh decimation:", len(combined.faces))
 
                 self.robot_links_mesh[link.name] = combined
                 self.robot_links_convex_mesh[link.name] = trimesh.convex.convex_hull(combined)
@@ -189,24 +194,42 @@ class robot_kinematic:
 
         return mesh
 
+    # def self_collision_detected(self):
+    #     collision_detector = trimesh.collision.CollisionManager()
+    #     fk = self.robot.link_fk(cfg=self.robot_joints)
+    #     robot_meshes = self.robot_links_mesh
+
+    #     for i in range(self.num_links):
+    #         name = self.link_names[i]
+    #         link_mesh = robot_meshes[name].copy()
+    #         collision_detector.add_object(name=name,
+    #                                       mesh=link_mesh,
+    #                                       transform=fk[self.robot.links[i]])
+
+    #     _, collision_set = collision_detector.in_collision_internal(return_names=True)
+    #     collided_pair = collision_set - self.link_connection_set
+    #     if collided_pair:
+    #         return True
+    #     else:
+    #         return False
     def self_collision_detected(self):
         collision_detector = trimesh.collision.CollisionManager()
         fk = self.robot.link_fk(cfg=self.robot_joints)
-        robot_meshes = self.robot_links_mesh
 
-        for i in range(self.num_links):
-            name = self.link_names[i]
-            link_mesh = robot_meshes[name].copy()
-            collision_detector.add_object(name=name,
-                                          mesh=link_mesh,
-                                          transform=fk[self.robot.links[i]])
+        for name in self.link_names:
+            link_mesh = self.robot_links_mesh[name].copy()
+
+            link_obj = self.robot.link_map[name]
+            T = fk[link_obj]
+
+            collision_detector.add_object(name=name, mesh=link_mesh, transform=T)
 
         _, collision_set = collision_detector.in_collision_internal(return_names=True)
+
+        # collision_set contains adjacent-link contacts too; remove those
         collided_pair = collision_set - self.link_connection_set
-        if collided_pair:
-            return True
-        else:
-            return False
+        return bool(collided_pair)
+
 
     def set_robot_joints(self, positions):
         assert len(positions) == self.num_joints
