@@ -85,7 +85,7 @@ class DataSampler(robot_kinematic):
         # trimesh uses a rejection-based sampling method
         # mesh with intricate geometry needs to sample more
         if link_weights is None:
-            link_weights = [1, 1, 1, 2, 3, 3, 3]
+            link_weights = [1, 1, 10, 5, 3, 3, 3]
         assert len(link_weights) == self.num_links
 
         if joint_positions is not None:
@@ -104,6 +104,8 @@ class DataSampler(robot_kinematic):
         signed_distance_links = []
         for name in self.link_names:
             link_mesh = self.get_link_mesh(name)
+            print(name, "watertight:", link_mesh.is_watertight)
+
             signed_distance = trimesh.proximity.signed_distance(link_mesh, sampled_points)
             signed_distance_links.append(signed_distance)
 
@@ -205,11 +207,15 @@ class DataSampler(robot_kinematic):
 if __name__ == "__main__":
     np.random.seed(16)
     robo = DataSampler(dataset_path='../dataset/')
+    # base_mesh = robo.get_link_mesh("upper_arm_link")
 
+    # scene = trimesh.Scene()
+    # scene.add_geometry(base_mesh)
+    # scene.show()
     # random joint configuration
     sampled_q = robo.sample_random_robot_config()
     print("Sampled q:", sampled_q)
-    # sampled_q = np.array([ 1.49208575,  1.92796321, -2.76736766,  1.31964001,  4.76788696,  4.1729126 ])
+    sampled_q = np.array([0, -1.57, 0, -1.57, 0, 0])
     # print("Current q:", robo.robot_q)
     robo.set_robot_joints(sampled_q)
 
@@ -222,6 +228,24 @@ if __name__ == "__main__":
     print("self-collision detected: {}".format(robo.self_collision_detected()))
 
     combined_mesh = robo.get_combined_mesh(convex=False, bounding_box=False)
+    # ----- create ONE test point in workspace -----
+    test_point = np.array([[0.4, 0.0, 0.3]])   # shape must be (1, 3)
+
+    # ----- compute signed distance to every link -----
+    sd = robo.batch_calculate_signed_distance(test_point)
+    # sd shape = (1, num_links)
+
+    print("\nSigned distance per link for point:", test_point[0])
+    for name, dist in zip(robo.link_names, sd[0]):
+        print(f"{name:20s}: {dist: .6f}")
+
+    # ----- visualize the point with the robot -----
+    scene = robo.create_point_cloud_scene(
+        sampled_points=test_point,
+        mesh=combined_mesh,
+        point_radius=0.02
+    )
+    scene.show()
 
     # sampled points outside
     outside_points = robo.whole_arm_normal_sampling(offset_range=[0.4, 0.5], base_num=50)
@@ -230,9 +254,9 @@ if __name__ == "__main__":
     print("signed distance:", robo.batch_calculate_signed_distance(outside_points))
 
     # sampled points inside (well you may not see it without zooming in)
-    inside_points = robo.whole_arm_inside_sampling(base_num=50)
+    inside_points = robo.whole_arm_inside_sampling(base_num=10)
     scene_inside = robo.create_point_cloud_scene(inside_points, combined_mesh, point_radius=0.02)
-    scene_inside.show()
+    scene_inside.show(viewer="gl")
     print("signed distance:", robo.batch_calculate_signed_distance(inside_points))
 
     # batch sample outside
