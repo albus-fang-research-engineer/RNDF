@@ -76,23 +76,23 @@ class robot_kinematic:
             #     for m in visual.geometry.meshes:
             #         meshes.append(m.copy())
 
-            # for visual in link.visuals:
-            #     for m in visual.geometry.meshes:
-            #         mesh = m.copy()
-
-            #         if visual.origin is not None:
-            #             mesh.apply_transform(visual.origin)
-
-            #         meshes.append(mesh)
-
-            for collision in link.collisions:
-                for m in collision.geometry.meshes:
+            for visual in link.visuals:
+                for m in visual.geometry.meshes:
                     mesh = m.copy()
 
-                    if collision.origin is not None:
-                        mesh.apply_transform(collision.origin)
+                    if visual.origin is not None:
+                        mesh.apply_transform(visual.origin)
 
                     meshes.append(mesh)
+
+            # for collision in link.collisions:
+            #     for m in collision.geometry.meshes:
+            #         mesh = m.copy()
+
+            #         if collision.origin is not None:
+            #             mesh.apply_transform(collision.origin)
+
+            #         meshes.append(mesh)
             
 
 

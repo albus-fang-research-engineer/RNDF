@@ -220,8 +220,8 @@ if __name__ == "__main__":
     robo.set_robot_joints(sampled_q)
 
     # visualize sampled joint configuration
-    robo.show_robot_meshes(convex=False, bounding_box=False)
-    robo.show_robot_meshes(convex=False, bounding_box=True)
+    # robo.show_robot_meshes(convex=False, bounding_box=False)
+    # robo.show_robot_meshes(convex=False, bounding_box=True)
 
     print("link_names",robo.link_names)
     print("joint_names",robo.joint_names)
@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     combined_mesh = robo.get_combined_mesh(convex=False, bounding_box=False)
     # ----- create ONE test point in workspace -----
-    test_point = np.array([[0.4, 0.0, 0.3]])   # shape must be (1, 3)
+    test_point = np.array([[0.0, 0.0, 1.1]])   # shape must be (1, 3)
 
     # ----- compute signed distance to every link -----
     sd = robo.batch_calculate_signed_distance(test_point)
