@@ -104,9 +104,9 @@ class DataSampler(robot_kinematic):
         signed_distance_links = []
         for name in self.link_names:
             link_mesh = self.get_link_mesh(name)
-            print(name, "watertight:", link_mesh.is_watertight)
+            # print(name, "watertight:", link_mesh.is_watertight)
 
-            signed_distance = trimesh.proximity.signed_distance(link_mesh, sampled_points)
+            signed_distance = -trimesh.proximity.signed_distance(link_mesh, sampled_points)
             signed_distance_links.append(signed_distance)
 
         return np.asarray(signed_distance_links).transpose()
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     print("signed distance:", robo.batch_calculate_signed_distance(inside_points))
 
     # batch sample outside
-    robo.batch_sample_outside_mesh(batch_size=4, base_num=20, offset_range=[0., 0.1])
+    robo.batch_sample_outside_mesh(batch_size=500, base_num=100, offset_range=[0., 0.1])
 
     # batch sample inside
-    robo.batch_sample_inside_mesh(batch_size=4, base_num=20, link_weights=[1, 1, 1, 2, 3, 3, 3])
+    robo.batch_sample_inside_mesh(batch_size=500, base_num=100, link_weights=[1, 1, 1, 2, 3, 3, 3])
