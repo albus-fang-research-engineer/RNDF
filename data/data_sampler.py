@@ -85,7 +85,7 @@ class DataSampler(robot_kinematic):
         # trimesh uses a rejection-based sampling method
         # mesh with intricate geometry needs to sample more
         if link_weights is None:
-            link_weights = [1, 1, 10, 5, 3, 3, 3]
+            link_weights = [1, 1, 1, 1, 1, 1, 1]
         assert len(link_weights) == self.num_links
 
         if joint_positions is not None:
@@ -202,8 +202,114 @@ class DataSampler(robot_kinematic):
 
         scene.add_geometry(mesh)
         return scene
+    
+    def sample_uniform_workspace(self, num_points, margin=0.3):
+        mesh = self.get_combined_mesh(convex=False, bounding_box=False)
+        # bounds = mesh.bounds
+        bounds = np.array([
+            [-0.75, 0.75],
+            [-0.75, 0.75],
+            [ 0.0, 1.0]
+        ])
+        bounds_min = bounds[:,0] - margin
+        bounds_max = bounds[:,1] + margin
 
+        pts = np.random.uniform(
+            low=bounds_min,
+            high=bounds_max,
+            size=(num_points, 3)
+        )
+        return pts
+    
+    def sample_mixed_points(self, uniform_base_num = 500):
+        """
+        Generate PR, PN, PI for ONE robot configuration
+        """
 
+        # --- PR (uniform) ---
+        PR = self.sample_uniform_workspace(uniform_base_num)
+
+        # --- PN (near surface) ---
+        PN = self.whole_arm_normal_sampling(
+            base_num=10,
+            offset_range=[0, 0.1]
+        )
+
+        # --- PI (inside) ---
+        PI = self.whole_arm_inside_sampling(
+            base_num=20
+        )
+
+        return np.vstack([PR, PN, PI])
+    
+    def batch_sample_mixed(self, batch_size, base_num):
+
+        batch_data = []
+        iter_time = 0
+
+        while iter_time < batch_size:
+
+            rand_q = self.sample_random_robot_config()
+            self.set_robot_joints(rand_q)
+
+            if self.self_collision_detected():
+                continue
+
+            pts = self.sample_mixed_points(base_num)
+
+            sd = self.batch_calculate_signed_distance(pts)
+
+            q_repeat = np.tile(rand_q, (len(pts), 1))
+
+            data = np.concatenate((q_repeat, pts, sd), axis=1)
+
+            batch_data.append(data)
+            iter_time += 1
+
+        return np.vstack(batch_data)
+    
+if __name__ == "__main__":
+    np.random.seed(26)
+
+    robo = DataSampler(dataset_path='../dataset_new_scheme/')
+
+    # --- sample ONE valid robot configuration ---
+    while True:
+        q = robo.sample_random_robot_config()
+        q = np.array([0, -1.57, 0, -1.57, 0, 0])
+        robo.set_robot_joints(q)
+        if not robo.self_collision_detected():
+            break
+    
+    print("Using joint configuration:", q)
+
+    # --- get robot mesh ---
+    robot_mesh = robo.get_combined_mesh(convex=False, bounding_box=False)
+
+    # --- sample mixed points ---
+    pts = robo.sample_mixed_points(uniform_base_num=500)
+
+    print(f"Total sampled points: {pts.shape[0]}")
+
+    # --- create visualization ---
+    scene = trimesh.Scene()
+
+    # add robot mesh
+    scene.add_geometry(robot_mesh)
+
+    # add sampled points
+    for p in pts:
+        sphere = trimesh.creation.icosphere(
+            subdivisions=1,
+            radius=0.01,
+            face_colors=[0, 255, 0, 150]  # green points
+        )
+        sphere.apply_translation(p)
+        scene.add_geometry(sphere)
+
+    # show
+    scene.show()
+'''
 if __name__ == "__main__":
     np.random.seed(16)
     robo = DataSampler(dataset_path='../dataset/')
@@ -260,7 +366,8 @@ if __name__ == "__main__":
     print("signed distance:", robo.batch_calculate_signed_distance(inside_points))
 
     # batch sample outside
-    robo.batch_sample_outside_mesh(batch_size=500, base_num=100, offset_range=[0., 0.1])
+    robo.batch_sample_outside_mesh(batch_size=500, base_num=10, offset_range=[0., 0.1])
 
     # batch sample inside
-    robo.batch_sample_inside_mesh(batch_size=500, base_num=100, link_weights=[1, 1, 1, 2, 3, 3, 3])
+    robo.batch_sample_inside_mesh(batch_size=500, base_num=10, link_weights=[1, 1, 1, 2, 3, 3, 3])
+'''
