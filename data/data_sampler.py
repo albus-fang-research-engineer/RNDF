@@ -276,7 +276,7 @@ if __name__ == "__main__":
     # --- sample ONE valid robot configuration ---
     while True:
         q = robo.sample_random_robot_config()
-        q = np.array([0, -1.57, 0, -1.57, 0, 0])
+        # q = np.array([0, -1.57, 0, -1.57, 0, 0])
         robo.set_robot_joints(q)
         if not robo.self_collision_detected():
             break
@@ -313,6 +313,23 @@ if __name__ == "__main__":
 
     # show
     scene.show()
+    
+    batch_size = 3000          # number of configurations
+    uniform_base_num = 500     # PR samples
+
+    print("Starting dataset generation...")
+
+    data = robo.batch_sample_mixed(
+        batch_size=batch_size,
+        base_num=uniform_base_num
+    )
+
+    print("Dataset shape:", data.shape)
+
+    save_path = robo.dataset_path + "/mixed_dataset.npy"
+    np.save(save_path, data)
+
+    print(f"Saved dataset to: {save_path}")
 '''
 if __name__ == "__main__":
     np.random.seed(16)
