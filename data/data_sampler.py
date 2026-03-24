@@ -207,9 +207,9 @@ class DataSampler(robot_kinematic):
         mesh = self.get_combined_mesh(convex=False, bounding_box=False)
         # bounds = mesh.bounds
         bounds = np.array([
-            [-0.75, 0.75],
-            [-0.75, 0.75],
-            [ 0.0, 1.0]
+            [-0.9, 0.9],
+            [-0.9, 0.9],
+            [ 0.3, 0.9]
         ])
         bounds_min = bounds[:,0] - margin
         bounds_max = bounds[:,1] + margin
@@ -292,7 +292,11 @@ if __name__ == "__main__":
     print(f"Total sampled points: {pts.shape[0]}")
 
     # --- create visualization ---
-    scene = trimesh.Scene()
+    def create_axes(length=0.3):
+        axis = trimesh.creation.axis(origin_size=0.08)
+        axis.apply_scale(length)
+        return axis
+    scene = trimesh.Scene(create_axes())
 
     # add robot mesh
     scene.add_geometry(robot_mesh)
