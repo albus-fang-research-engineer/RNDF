@@ -25,6 +25,8 @@ class robot_kinematic:
 
         self._joint_upper_bound = np.array(self.conf.joint_upper_bound)
         self._joint_lower_bound = np.array(self.conf.joint_lower_bound)
+        self._joint_lower_bound = np.maximum(self._joint_lower_bound, -np.pi)
+        self._joint_upper_bound = np.minimum(self._joint_upper_bound,  np.pi)
 
         self.joint_names = []
         self.link_names = []

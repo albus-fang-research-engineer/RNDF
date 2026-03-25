@@ -1,6 +1,3 @@
-"""
-@Email: yiting.chen@rice.edu
-"""
 import sys
 sys.path.append("../")
 import time
@@ -9,7 +6,8 @@ import trimesh
 import numpy as np
 from utils import robot_kinematic
 
-
+def wrap_to_pi(q):
+    return (q + np.pi) % (2*np.pi) - np.pi
 class DataSampler(robot_kinematic):
     def __init__(self, urdf_path=None, dataset_path=None):
         super().__init__(urdf_path)
@@ -51,6 +49,7 @@ class DataSampler(robot_kinematic):
 
 
     def set_robot_joints(self, positions):
+        positions = wrap_to_pi(positions)
         assert len(positions) == self.num_joints
         for i in range(self.num_joints):
             assert (self.joint_lower_bound[i] < positions[i]) & (positions[i] < self.joint_upper_bound[i])
@@ -250,6 +249,7 @@ class DataSampler(robot_kinematic):
         while iter_time < batch_size:
 
             rand_q = self.sample_random_robot_config()
+            rand_q = wrap_to_pi(rand_q)
             self.set_robot_joints(rand_q)
 
             if self.self_collision_detected():
@@ -265,9 +265,14 @@ class DataSampler(robot_kinematic):
 
             batch_data.append(data)
             iter_time += 1
-
+            if iter_time % 10 == 0 or iter_time == batch_size:
+                print_progress(iter_time, batch_size)
         return np.vstack(batch_data)
-    
+def print_progress(iter_time, batch_size):
+    progress = iter_time / batch_size
+
+    print(f"[{iter_time}/{batch_size}] "
+          f"{progress*100:.1f}%") 
 if __name__ == "__main__":
     np.random.seed(26)
 
@@ -313,7 +318,7 @@ if __name__ == "__main__":
 
     # show
     scene.show()
-    
+
     batch_size = 3000          # number of configurations
     uniform_base_num = 500     # PR samples
 
