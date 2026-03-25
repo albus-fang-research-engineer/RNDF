@@ -100,11 +100,11 @@ class robot_kinematic:
 
             if meshes:
                 combined = trimesh.util.concatenate(meshes)
-                print(link.name, "faces before mesh decimation:", len(combined.faces))
+                # print(link.name, "faces before mesh decimation:", len(combined.faces))
                 target_faces = 1 * len(combined.faces)
                 if len(combined.faces) > target_faces:
                     combined = combined.simplify_quadratic_decimation(target_faces)
-                print(link.name, "faces after mesh decimation:", len(combined.faces))
+                # print(link.name, "faces after mesh decimation:", len(combined.faces))
 
                 self.robot_links_mesh[link.name] = combined
                 self.robot_links_convex_mesh[link.name] = trimesh.convex.convex_hull(combined)
@@ -112,14 +112,14 @@ class robot_kinematic:
                 self.link_names.append(link.name)
 
         self.num_links = len(self.link_names)
-        for name, mesh in self.robot_links_mesh.items():
-            print(name, mesh.vertices.shape)
+        # for name, mesh in self.robot_links_mesh.items():
+        #     print(name, mesh.vertices.shape)
 
-        print("num_links with visuals:", self.num_links)
-        print("link_names:", self.link_names)
+        # print("num_links with visuals:", self.num_links)
+        # print("link_names:", self.link_names)
 
 
-        print("num_joints:", self.num_joints)
+        # print("num_joints:", self.num_joints)
         # print("lower bounds:", self.joint_lower_bound.shape)
         # print("upper bounds:", self.joint_upper_bound.shape)
         # print("joint names:", self.joint_names)
@@ -130,9 +130,9 @@ class robot_kinematic:
         # print("\n--- DEBUG: original link_names ---")
         # for k in self.link_names:
         #     print(k, type(k))
-        print("\n=== LOCAL MESH CENTROIDS ===")
-        for name in self.link_names:
-            print(name, self.robot_links_mesh[name].centroid)
+        # print("\n=== LOCAL MESH CENTROIDS ===")
+        # for name in self.link_names:
+        #     print(name, self.robot_links_mesh[name].centroid)
 
 
     def show_robot_meshes(self, convex=True, bounding_box=True):

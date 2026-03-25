@@ -300,7 +300,7 @@ class DataSampler(robot_kinematic):
 
         if num_workers is None:
             num_workers = max(1, cpu_count() - 1)
-
+        num_workers = 8
         print(f"Using {num_workers} workers")
 
         with Pool(
@@ -325,7 +325,7 @@ class DataSampler(robot_kinematic):
 
         if num_workers is None:
             num_workers = max(1, cpu_count() - 1)
-
+        num_workers = 8
         print(f"Using {num_workers} workers")
 
         with Pool(
@@ -371,7 +371,7 @@ def print_progress(iter_time, batch_size):
 if __name__ == "__main__":
     np.random.seed(26)
 
-    robo = DataSampler(dataset_path='../dataset_new_scheme/')
+    robo = DataSampler(dataset_path='../dataset_new_scheme')
 
     # --- sample ONE valid robot configuration ---
     while True:
