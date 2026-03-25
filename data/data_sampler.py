@@ -5,14 +5,41 @@ import copy
 import trimesh
 import numpy as np
 from utils import robot_kinematic
+from multiprocessing import Pool, cpu_count
 
 def wrap_to_pi(q):
     return (q + np.pi) % (2*np.pi) - np.pi
+# ===== multiprocessing worker utilities =====
+
+_worker_sampler = None
+
+def init_worker(urdf_path, dataset_path):
+    global _worker_sampler
+    _worker_sampler = DataSampler(urdf_path=urdf_path, dataset_path=dataset_path)
+
+def sample_one_worker(base_num):
+    global _worker_sampler
+
+    while True:
+        rand_q = _worker_sampler.sample_random_robot_config()
+        rand_q = wrap_to_pi(rand_q)
+        _worker_sampler.set_robot_joints(rand_q)
+
+        if _worker_sampler.self_collision_detected():
+            continue
+
+        pts = _worker_sampler.sample_mixed_points(base_num)
+        sd = _worker_sampler.batch_calculate_signed_distance(pts)
+
+        q_repeat = np.tile(rand_q, (len(pts), 1))
+        data = np.concatenate((q_repeat, pts, sd), axis=1)
+
+        return data
 class DataSampler(robot_kinematic):
     def __init__(self, urdf_path=None, dataset_path=None):
         super().__init__(urdf_path)
         self.dataset_path = dataset_path
-
+        self.urdf_path = "/home/albusfang/Albus/RNDF/utils/robots/ur5e/ur5e.urdf"
     # def get_link_mesh(self, link_name, joint_positions=None):
     #     assert link_name in self.link_names
     #     if joint_positions is None:
@@ -52,7 +79,7 @@ class DataSampler(robot_kinematic):
         positions = wrap_to_pi(positions)
         assert len(positions) == self.num_joints
         for i in range(self.num_joints):
-            assert (self.joint_lower_bound[i] < positions[i]) & (positions[i] < self.joint_upper_bound[i])
+            assert (self.joint_lower_bound[i] <= positions[i]) & (positions[i] <= self.joint_upper_bound[i])
 
         for i in range(self.num_joints):
             self._robot_joints[self.joint_names[i]] = positions[i]
@@ -268,6 +295,74 @@ class DataSampler(robot_kinematic):
             if iter_time % 10 == 0 or iter_time == batch_size:
                 print_progress(iter_time, batch_size)
         return np.vstack(batch_data)
+    
+    def batch_sample_mixed_parallel(self, batch_size, base_num, num_workers=None):
+
+        if num_workers is None:
+            num_workers = max(1, cpu_count() - 1)
+
+        print(f"Using {num_workers} workers")
+
+        with Pool(
+            processes=num_workers,
+            initializer=init_worker,
+            initargs=(self.urdf_path, self.dataset_path)
+        ) as pool:
+
+            results = pool.map(
+                sample_one_worker,
+                [base_num] * batch_size
+            )
+
+        return np.vstack(results)
+    def batch_sample_mixed_parallel_to_disk(
+        self, batch_size, base_num, save_path,
+        num_workers=None, chunk_size=50
+    ):
+
+        import os
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        if num_workers is None:
+            num_workers = max(1, cpu_count() - 1)
+
+        print(f"Using {num_workers} workers")
+
+        with Pool(
+            processes=num_workers,
+            initializer=init_worker,
+            initargs=(self.urdf_path, self.dataset_path)
+        ) as pool:
+
+            buffer = []
+            file_idx = 0
+
+            for i, result in enumerate(
+                pool.imap_unordered(sample_one_worker, [base_num] * batch_size)
+            ):
+
+                buffer.append(result)
+
+                if (i + 1) % 50 == 0:
+                    print(f"Processed {i+1}/{batch_size}")
+
+                if len(buffer) >= chunk_size:
+                    chunk = np.vstack(buffer).astype(np.float32)
+
+                    filename = f"{save_path}_chunk_{file_idx:04d}.npy"
+                    np.save(filename, chunk)
+
+                    print(f"Saved {filename} | shape={chunk.shape}")
+
+                    buffer = []
+                    file_idx += 1
+
+            # save remaining
+            if buffer:
+                chunk = np.vstack(buffer).astype(np.float32)
+                filename = f"{save_path}_chunk_{file_idx:04d}.npy"
+                np.save(filename, chunk)
+                print(f"Saved {filename} | shape={chunk.shape}")
 def print_progress(iter_time, batch_size):
     progress = iter_time / batch_size
 
@@ -324,17 +419,22 @@ if __name__ == "__main__":
 
     print("Starting dataset generation...")
 
-    data = robo.batch_sample_mixed(
+    # data = robo.batch_sample_mixed(
+    #     batch_size=batch_size,
+    #     base_num=uniform_base_num
+    # )
+    data = robo.batch_sample_mixed_parallel_to_disk(
         batch_size=batch_size,
-        base_num=uniform_base_num
+        base_num=uniform_base_num,
+        save_path=robo.dataset_path + "/mixed_dataset"
     )
 
-    print("Dataset shape:", data.shape)
+    # print("Dataset shape:", data.shape)
 
-    save_path = robo.dataset_path + "/mixed_dataset.npy"
-    np.save(save_path, data)
+    # save_path = robo.dataset_path + "/mixed_dataset.npy"
+    # np.save(save_path, data)
 
-    print(f"Saved dataset to: {save_path}")
+    # print(f"Saved dataset to: {save_path}")
 '''
 if __name__ == "__main__":
     np.random.seed(16)
